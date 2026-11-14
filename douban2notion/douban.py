@@ -41,10 +41,10 @@ headers = {
     "user-agent": "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.16(0x18001023) NetType/WIFI Language/zh_CN",
     "referer": "https://servicewechat.com/wx2f9b06c1de1ccfca/84/page-frame.html",
 }
-@retry(stop_max_attempt_number=3, wait_fixed=5000)
 MAX_PAGES = 200  # 50 条/页 × 200 = 10000 条上限，防分页参数失效时无限空转
 
 
+@retry(stop_max_attempt_number=3, wait_fixed=5000)
 def fetch_subjects(user, type_, status):
     """拉取某状态下的全部豆瓣条目（想读/在看/看过 等）。
 
