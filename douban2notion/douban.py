@@ -42,32 +42,56 @@ headers = {
     "referer": "https://servicewechat.com/wx2f9b06c1de1ccfca/84/page-frame.html",
 }
 @retry(stop_max_attempt_number=3, wait_fixed=5000)
+MAX_PAGES = 200  # 50 条/页 × 200 = 10000 条上限，防分页参数失效时无限空转
+
+
 def fetch_subjects(user, type_, status):
-    offset = 0
-    page = 0
+    """拉取某状态下的全部豆瓣条目（想读/在看/看过 等）。
+
+    终止条件（任一成立即停）：
+      · 本页返回 0 条（正常结束）
+      · HTTP 非 2xx 或请求异常（打印后停止，不再空转）
+      · 整页都是已见过的条目（分页参数没生效，继续拉只会死循环）
+      · 页数达到 MAX_PAGES 硬上限
+    """
     url = f"https://{DOUBAN_API_HOST}/api/v2/user/{user}/interests"
-    total = 0
     results = []
-    while True:
+    seen = set()
+    for page in range(MAX_PAGES):
         params = {
             "type": type_,
             "count": 50,
             "status": status,
-            "start": offset,
+            "start": page * 50,
             "apiKey": DOUBAN_API_KEY,
         }
-        response = requests.get(url, headers=headers, params=params)
-        
-        if response.ok:
-            response = response.json()
-            interests = response.get("interests")
-            if len(interests)==0:
-                break
-            results.extend(interests)
-            print(f"total = {total}")
-            print(f"size = {len(results)}")
-            page += 1
-            offset = page * 50
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+        except requests.RequestException as e:
+            print(f"[fetch_subjects] {type_}/{status} 第 {page} 页请求异常：{e}")
+            break
+        if not response.ok:
+            print(f"[fetch_subjects] {type_}/{status} 第 {page} 页 HTTP {response.status_code}，停止分页")
+            break
+        interests = (response.json() or {}).get("interests") or []
+        if not interests:
+            break
+        added = 0
+        for item in interests:
+            key = ((item or {}).get("subject") or {}).get("id")
+            if key is None:
+                key = json.dumps(item, sort_keys=True, ensure_ascii=False)
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append(item)
+            added += 1
+        print(f"size = {len(results)}")
+        if added == 0:
+            print(f"[fetch_subjects] {type_}/{status} 第 {page} 页全为重复项，停止分页")
+            break
+    else:
+        print(f"[fetch_subjects] {type_}/{status} 达到 {MAX_PAGES} 页上限，停止分页")
     return results
 
 
