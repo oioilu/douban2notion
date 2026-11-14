@@ -295,6 +295,11 @@ def upload_image_to_notion(url, retries=3):
     return None
 
 
+def cover_key(url):
+    """封面在 Notion 里的 name 字段（截断 100）作为比对键。"""
+    return (url or "")[:100]
+
+
 def cover_is_uploaded(property_value):
     """判断封面是不是已经上传进 Notion 的文件（而不是外链）。"""
     files = (property_value or {}).get("files") or []
@@ -328,7 +333,8 @@ def get_properties(dict1, dict2):
             upload_id = upload_image_to_notion(value)
             if upload_id:
                 # name 里留原始豆瓣地址，供下次比对是否需要重新同步
-                property = {"files": [{"type": "file_upload", "name": value, "file_upload": {"id": upload_id}}]}
+                # Notion 限制 file.name ≤ 100 字符，豆瓣地址常常 105+
+                property = {"files": [{"type": "file_upload", "name": value[:100], "file_upload": {"id": upload_id}}]}
             else:
                 print(f"封面回退为外链（可能显示破损）：{value}")
                 property = {"files": [{"type": "external", "name": "Cover", "external": {"url": value}}]}
