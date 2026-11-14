@@ -283,6 +283,7 @@ def upload_image_to_notion(url, retries=3):
             )
             if sent.ok:
                 _IMAGE_UPLOAD_CACHE[url] = upload_id
+                print(f"封面已上传 {filename} {len(content)}B")
                 return upload_id
             print(f"上传文件失败 {sent.status_code} {sent.text[:120]}")
         except Exception as exc:
