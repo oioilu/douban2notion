@@ -110,6 +110,7 @@ def insert_movie(douban_name,notion_helper):
             "评分": movie.get("评分"),
             "演员": movie.get("演员"),
             "IMDB": movie.get("IMDB"),
+            "cover_uploaded": utils.cover_is_uploaded(i.get("properties", {}).get("封面")),
             "page_id": i.get("id")
         }
     results = []
@@ -142,6 +143,7 @@ def insert_movie(douban_name,notion_helper):
                 or notion_movive.get("评分") != movie.get("评分")
                 or not notion_movive.get("演员")
                 or not notion_movive.get("IMDB")
+                or not notion_movive.get("cover_uploaded")
             ):
                 if not notion_movive.get("演员") and subject.get("actors"):
                     l = []
@@ -236,6 +238,7 @@ def insert_book(douban_name,notion_helper):
             "日期": book.get("日期"),
             "评分": book.get("评分"),
             "封面": book.get("封面"),
+            "cover_uploaded": utils.cover_is_uploaded(i.get("properties", {}).get("封面")),
             "page_id": i.get("id"),
         }
         print(i)
@@ -273,6 +276,7 @@ def insert_book(douban_name,notion_helper):
                 or notion_movive.get("短评") != book.get("短评")
                 or notion_movive.get("状态") != book.get("状态")
                 or notion_movive.get("评分") != book.get("评分")
+                or not notion_movive.get("cover_uploaded")
             ):
                 print(f"更新{book.get('书名')}")
                 properties = utils.get_properties(book, book_properties_type_dict)
