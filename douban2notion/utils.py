@@ -252,8 +252,11 @@ def upload_image_to_notion(url, retries=3):
         return None
     if url in _IMAGE_UPLOAD_CACHE:
         return _IMAGE_UPLOAD_CACHE[url]
-    token = os.getenv("NOTION_TOKEN")
+    # 电影页用的是 MOVIE_NOTION_TOKEN，书籍页用 BOOK_NOTION_TOKEN；按同样顺序兜底
+    token = (os.getenv("NOTION_TOKEN") or os.getenv("MOVIE_NOTION_TOKEN")
+             or os.getenv("BOOK_NOTION_TOKEN"))
     if not token:
+        print("没有可用的 Notion 令牌，封面只能保留外链")
         return None
     content, content_type = download_image(url)
     if not content:
