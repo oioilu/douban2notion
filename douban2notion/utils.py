@@ -4,6 +4,7 @@ from datetime import timedelta
 import hashlib
 import os
 import re
+import time
 import requests
 import base64
 from douban2notion.config import (
@@ -218,6 +219,84 @@ def get_first_and_last_day_of_week(date):
     return first_day_of_week, last_day_of_week
 
 
+NOTION_API_BASE = "https://api.notion.com/v1"
+# 豆瓣图床有防盗链：不带 Referer 一律 418。按站点依次尝试。
+DOUBAN_REFERERS = ("https://movie.douban.com/", "https://book.douban.com/", "")
+IMAGE_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+_IMAGE_UPLOAD_CACHE = {}
+
+
+def download_image(url):
+    """带 Referer 下载豆瓣图片，返回 (bytes, content_type)；失败返回 (None, None)。"""
+    for referer in DOUBAN_REFERERS:
+        headers = {"User-Agent": IMAGE_UA}
+        if referer:
+            headers["Referer"] = referer
+        try:
+            resp = requests.get(url, headers=headers, timeout=30)
+        except Exception as exc:
+            print(f"封面下载异常 {url}: {exc}")
+            continue
+        if resp.ok and resp.content:
+            return resp.content, (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0]
+    return None, None
+
+
+def upload_image_to_notion(url, retries=3):
+    """把外链封面下载后上传进 Notion，返回 file_upload id；失败返回 None。
+
+    为什么不能直接把豆瓣外链给 Notion：Notion 的服务端下载不带 Referer，豆瓣返回 418。
+    """
+    if not url:
+        return None
+    if url in _IMAGE_UPLOAD_CACHE:
+        return _IMAGE_UPLOAD_CACHE[url]
+    token = os.getenv("NOTION_TOKEN")
+    if not token:
+        return None
+    content, content_type = download_image(url)
+    if not content:
+        print(f"封面取不到（疑似防盗链拦截）：{url}")
+        return None
+    ext = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}.get(content_type, "jpg")
+    filename = f"cover.{ext}"
+    auth = {"Authorization": f"Bearer {token}", "Notion-Version": "2022-06-28"}
+    for _ in range(retries):
+        try:
+            created = requests.post(
+                f"{NOTION_API_BASE}/file_uploads",
+                headers={**auth, "Content-Type": "application/json"},
+                json={"filename": filename, "content_type": content_type},
+                timeout=30,
+            )
+            if not created.ok:
+                print(f"创建上传失败 {created.status_code} {created.text[:120]}")
+                time.sleep(2)
+                continue
+            upload_id = created.json()["id"]
+            sent = requests.post(
+                f"{NOTION_API_BASE}/file_uploads/{upload_id}/send",
+                headers=auth,
+                files={"file": (filename, content, content_type)},
+                timeout=60,
+            )
+            if sent.ok:
+                _IMAGE_UPLOAD_CACHE[url] = upload_id
+                return upload_id
+            print(f"上传文件失败 {sent.status_code} {sent.text[:120]}")
+        except Exception as exc:
+            print(f"封面上传异常 {exc}")
+        time.sleep(2)
+    return None
+
+
+def cover_is_uploaded(property_value):
+    """判断封面是不是已经上传进 Notion 的文件（而不是外链）。"""
+    files = (property_value or {}).get("files") or []
+    return bool(files) and files[0].get("type") == "file"
+
+
 def get_properties(dict1, dict2):
     properties = {}
     for key, value in dict1.items():
@@ -242,7 +321,13 @@ def get_properties(dict1, dict2):
         elif type == STATUS:
             property = {"status": {"name": value}}
         elif type == FILES:
-            property = {"files": [{"type": "external", "name": "Cover", "external": {"url": value}}]}
+            upload_id = upload_image_to_notion(value)
+            if upload_id:
+                # name 里留原始豆瓣地址，供下次比对是否需要重新同步
+                property = {"files": [{"type": "file_upload", "name": value, "file_upload": {"id": upload_id}}]}
+            else:
+                print(f"封面回退为外链（可能显示破损）：{value}")
+                property = {"files": [{"type": "external", "name": "Cover", "external": {"url": value}}]}
         elif type == DATE:
             property = {
                 "date": {
@@ -280,10 +365,13 @@ def get_property_value(property):
         return content.get("name")
     elif type == "files":
         # 不考虑多文件情况
-        if len(content) > 0 and content[0].get("type") == "external":
-            return content[0].get("external").get("url")
-        else:
+        if len(content) == 0:
             return None
+        first = content[0]
+        if first.get("type") == "external":
+            return (first.get("external") or {}).get("url")
+        # 上传进 Notion 的文件：name 存的是原始豆瓣地址
+        return first.get("name")
     elif type == "date":
         return str_to_timestamp(content.get("start"))
     else:
