@@ -162,6 +162,12 @@ def insert_movie(douban_name,notion_helper):
                     ]
                 if not notion_movive.get("IMDB"):
                     movie["IMDB"] = get_imdb(movie.get("豆瓣链接"))
+                # 更新分支原来不带封面，导致旧图永远是外链；这里补上
+                cover = (subject.get("pic") or {}).get("normal")
+                if cover and not cover.endswith(".webp"):
+                    cover = cover.rsplit(".", 1)[0] + ".webp"
+                if cover:
+                    movie["封面"] = cover
                 properties = utils.get_properties(movie, movie_properties_type_dict)
                 print(movie.get("电影名"))
                 notion_helper.get_date_relation(properties,create_time)
@@ -279,6 +285,11 @@ def insert_book(douban_name,notion_helper):
                 or not notion_movive.get("cover_uploaded")
             ):
                 print(f"更新{book.get('书名')}")
+                cover = (subject.get("pic") or {}).get("large")
+                if cover and not cover.endswith(".webp"):
+                    cover = cover.rsplit(".", 1)[0] + ".webp"
+                if cover:
+                    book["封面"] = cover
                 properties = utils.get_properties(book, book_properties_type_dict)
                 notion_helper.get_date_relation(properties,create_time)
                 notion_helper.update_page(
