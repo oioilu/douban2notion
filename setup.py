@@ -8,7 +8,7 @@ setup(
         "pendulum",
         "retrying",
         "notion-client",
-        "github-heatmap",
+        "Pillow",
         "python-dotenv",
         "beautifulsoup4",
         "lxml",
@@ -16,15 +16,15 @@ setup(
     entry_points={
         "console_scripts": [
             "douban = douban2notion.douban:main",
-            "heatmap = douban2notion.update_heatmap:main",
+            "heatmap = douban2notion.heatmap_png:main",
         ],
     },
-    author="malinkang",
-    author_email="linkang.ma@gmail.com",
+    author="oioi",
+    author_email="oioi@users.noreply.github.com",
     description="自动将豆瓣电影和豆瓣读书同步到Notion",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/malinkang/weread2notion-pro",
+    url="https://github.com/oioilu/douban2notion",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
