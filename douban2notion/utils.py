@@ -227,7 +227,7 @@ IMAGE_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 
 _IMAGE_UPLOAD_CACHE = {}
 
 
-def download_image(url):
+def _fetch_image_with_referer(url):
     """带 Referer 下载豆瓣图片，返回 (bytes, content_type)；失败返回 (None, None)。"""
     for referer in DOUBAN_REFERERS:
         headers = {"User-Agent": IMAGE_UA}
@@ -258,7 +258,7 @@ def upload_image_to_notion(url, retries=3):
     if not token:
         print("没有可用的 Notion 令牌，封面只能保留外链")
         return None
-    content, content_type = download_image(url)
+    content, content_type = _fetch_image_with_referer(url)
     if not content:
         print(f"封面取不到（疑似防盗链拦截）：{url}")
         return None
