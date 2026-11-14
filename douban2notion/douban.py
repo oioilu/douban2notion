@@ -277,7 +277,7 @@ def insert_book(douban_name,notion_helper):
             notion_movive = notion_book_dict.get(book.get("豆瓣链接"))
             if (
                 notion_movive.get("封面") is None
-                or notion_movive.get("封面") != book.get("封面")
+                or notion_movive.get("封面") != utils.cover_key(book.get("封面"))
                 or notion_movive.get("日期") != book.get("日期")
                 or notion_movive.get("短评") != book.get("短评")
                 or notion_movive.get("状态") != book.get("状态")
