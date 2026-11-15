@@ -215,7 +215,9 @@ def publish(token, page_id, path):
     body = {"type": "file_upload", "file_upload": {"id": up_id},
             "caption": [{"type": "text", "text": {"content": MARK}}]}
     if ours:
-        api("PATCH", f"/blocks/{ours}", token, {"image": body})
+        # 更新块时 image 里不能带 type（Notion 校验：body.image.type should be not present）
+        api("PATCH", f"/blocks/{ours}", token,
+            {"image": {k: v for k, v in body.items() if k != "type"}})
         action = f"更新图片块 {ours[:8]}"
     else:
         api("PATCH", f"/blocks/{stale_parent}/children", token, {"children": [{"type": "image", "image": body}]})
